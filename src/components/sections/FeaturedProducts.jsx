@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { getFeaturedProducts } from "../../services/productService";
 import Button from "../ui/Button";
 import SectionHeading from "../ui/SectionHeading";
+import { Link } from "react-router-dom";
 
 export default function FeaturedProducts() {
   const [products, setProducts] = useState([]);
@@ -62,10 +63,14 @@ export default function FeaturedProducts() {
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {products.map((product) => (
               <article
-                key={product.id}
-                className="group overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-1 hover:shadow-soft"
-              >
+  key={product.id}
+  className="group overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-1 hover:shadow-soft"
+>
                 <div className="relative overflow-hidden bg-slate-100">
+                  <Link
+  to={`/san-pham/${product.slug}`}
+  className="relative block overflow-hidden bg-slate-100"
+>
                   {product.image_url ? (
                     <img
                       src={product.image_url}
@@ -77,6 +82,7 @@ export default function FeaturedProducts() {
                       Chưa có ảnh
                     </div>
                   )}
+                    </Link>
 
                   {product.badge && (
                     <span className="absolute left-4 top-4 rounded-full bg-accent px-3 py-1 text-xs font-extrabold uppercase">
@@ -87,6 +93,10 @@ export default function FeaturedProducts() {
 
                 <div className="p-5">
                   <h3 className="min-h-14 text-lg font-extrabold">
+                    <Link
+    to={`/san-pham/${product.slug}`}
+    className="transition hover:text-primary-500"
+  ></Link>
                     {product.name}
                   </h3>
 

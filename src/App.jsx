@@ -13,6 +13,7 @@ import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 
 import AdminProductsPage from "./pages/admin/AdminProductsPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 export default function App() {
   return (
     <Routes>
@@ -21,7 +22,10 @@ export default function App() {
           index
           element={<HomePage />}
         />
-
+<Route
+  path="/san-pham/:slug"
+  element={<ProductDetailPage />}
+/>
         <Route
           path="/san-pham"
           element={<PlaceholderPage title="Sản phẩm" />}

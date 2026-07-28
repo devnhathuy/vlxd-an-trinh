@@ -37,3 +37,17 @@ export async function getActiveProducts() {
 
   return data ?? [];
 }
+export async function getProductBySlug(slug) {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
