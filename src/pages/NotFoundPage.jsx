@@ -1,0 +1,1 @@
+import Button from "../components/ui/Button";export default function NotFoundPage(){return <section className="section-space text-center"><div className="container-custom"><div className="text-7xl font-extrabold text-primary-500">404</div><h1 className="mt-4 text-3xl font-extrabold">Không tìm thấy trang</h1><Button to="/" className="mt-7">Về trang chủ</Button></div></section>}
