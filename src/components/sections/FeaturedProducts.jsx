@@ -13,6 +13,7 @@ export default function FeaturedProducts() {
     async function loadProducts() {
       try {
         const data = await getFeaturedProducts();
+        
         setProducts(data);
       } catch (error) {
         console.error("Không thể tải sản phẩm nổi bật:", error);
@@ -20,7 +21,6 @@ export default function FeaturedProducts() {
         setLoading(false);
       }
     }
-
     loadProducts();
   }, []);
 
@@ -62,70 +62,68 @@ export default function FeaturedProducts() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {products.map((product) => (
-              <article
-  key={product.id}
-  className="group overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-1 hover:shadow-soft"
->
-                <div className="relative overflow-hidden bg-slate-100">
-                  <Link
-  to={`/san-pham/${product.slug}`}
-  className="relative block overflow-hidden bg-slate-100"
->
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="grid h-56 w-full place-items-center text-sm font-bold text-slate-400">
-                      Chưa có ảnh
-                    </div>
-                  )}
-                    </Link>
+  <article
+    key={product.id}
+    className="group overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-1 hover:shadow-soft"
+  >
+    <div className="relative overflow-hidden bg-slate-100">
+      <Link
+        to={`/san-pham/${product.slug}`}
+        className="block overflow-hidden"
+      >
+        {product.image_url ? (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="grid h-56 w-full place-items-center text-sm font-bold text-slate-400">
+            Chưa có ảnh
+          </div>
+        )}
+      </Link>
 
-                  {product.badge && (
-                    <span className="absolute left-4 top-4 rounded-full bg-accent px-3 py-1 text-xs font-extrabold uppercase">
-                      {product.badge}
-                    </span>
-                  )}
-                </div>
+      {product.badge && (
+        <span className="absolute left-4 top-4 rounded-full bg-accent px-3 py-1 text-xs font-extrabold uppercase">
+          {product.badge}
+        </span>
+      )}
+    </div>
 
-                <div className="p-5">
-                  <h3 className="min-h-14 text-lg font-extrabold">
-                    <Link
-    to={`/san-pham/${product.slug}`}
-    className="transition hover:text-primary-500"
-  ></Link>
-                    {product.name}
-                  </h3>
+    <div className="p-5">
+      <h3 className="min-h-14 text-lg font-extrabold">
+        <Link
+          to={`/san-pham/${product.slug}`}
+          className="transition hover:text-primary-500"
+        >
+          {product.name}
+        </Link>
+      </h3>
 
-                  <p className="mt-2 text-sm text-slate-500">
-                    {product.unit || "Liên hệ"}
-                  </p>
+      <p className="mt-2 text-sm text-slate-500">
+        {product.unit || "Liên hệ"}
+      </p>
 
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <span className="text-xl font-extrabold text-primary-500">
-                      {product.price !== null &&
-                      product.price !== undefined
-                        ? `${Number(product.price).toLocaleString(
-                            "vi-VN",
-                          )}đ`
-                        : "Liên hệ"}
-                    </span>
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <span className="text-xl font-extrabold text-primary-500">
+          {product.price !== null && product.price !== undefined
+            ? `${Number(product.price).toLocaleString("vi-VN")}đ`
+            : "Liên hệ"}
+        </span>
 
-                    <span className="text-xs font-bold text-emerald-600">
-                      {product.stock_status || "Còn hàng"}
-                    </span>
-                  </div>
+        <span className="text-xs font-bold text-emerald-600">
+          {product.stock_status || "Còn hàng"}
+        </span>
+      </div>
 
-                  <Button href="#bao-gia" className="mt-5 w-full">
-                    Nhận báo giá
-                    <ArrowRight className="ml-2" size={17} />
-                  </Button>
-                </div>
-              </article>
-            ))}
+      <Button href="#bao-gia" className="mt-5 w-full">
+        Nhận báo giá
+        <ArrowRight className="ml-2" size={17} />
+      </Button>
+    </div>
+  </article>
+))}
           </div>
         )}
       </div>

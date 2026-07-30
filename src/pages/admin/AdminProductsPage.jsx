@@ -11,10 +11,19 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { getCategories } from "../../services/categoryService";
+import {
+  uploadGalleryImage,
+  saveGalleryImages,
+  deleteGalleryImages,
+  getGalleryImages,
+  deleteGalleryImageById,
+} from "../../services/productImageService";
 
 const emptyForm = {
   name: "",
   slug: "",
+  category_id: "",
   image_url: "",
   unit: "",
   price: "",
@@ -57,7 +66,12 @@ export default function AdminProductsPage() {
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
 const [imagePreview, setImagePreview] = useState("");
+const [galleryFiles, setGalleryFiles] = useState([]);
+const [galleryPreviews, setGalleryPreviews] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+const [categories, setCategories] = useState([]);
+const [existingGallery, setExistingGallery] = useState([]);
+const [deletedGalleryIds, setDeletedGalleryIds] = useState([]);
 
   const [message, setMessage] = useState({
     type: "",
@@ -102,8 +116,16 @@ const [imagePreview, setImagePreview] = useState("");
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
-
+async function fetchCategories() {
+  try {
+    const data = await getCategories();
+    setCategories(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
 
@@ -131,6 +153,9 @@ const [imagePreview, setImagePreview] = useState("");
     setFormData(emptyForm);
     setImageFile(null);
 setImagePreview("");
+setGalleryFiles([]);
+setGalleryPreviews([]);
+setDeletedGalleryIds([]);
     setMessage({
       type: "",
       text: "",
@@ -138,44 +163,68 @@ setImagePreview("");
     setShowForm(true);
   }
 
-  function openEditForm(product) {
+async function openEditForm(product) {
+  try {
+    const gallery = await getGalleryImages(product.id);
+
+    setExistingGallery(gallery);
     setEditingId(product.id);
+setDeletedGalleryIds([]);
 
     setFormData({
-        image_url: product.image_url ?? "",
-      name: product.name ?? "",
-      slug: product.slug ?? "",
-      unit: product.unit ?? "",
-      price:
-        product.price === null || product.price === undefined
-          ? ""
-          : product.price,
-      price_note: product.price_note ?? "",
-      stock_status: product.stock_status ?? "Còn hàng",
-      badge: product.badge ?? "",
+      name: product.name || "",
+      slug: product.slug || "",
+      category_id: product.category_id || "",
+      image_url: product.image_url || "",
+      unit: product.unit || "",
+      price: product.price ?? "",
+      price_note: product.price_note || "",
+      stock_status: product.stock_status || "available",
+      badge: product.badge || "",
       is_featured: Boolean(product.is_featured),
       is_active: Boolean(product.is_active),
     });
-setImageFile(null);
-setImagePreview(product.image_url ?? "");
+
+    setImageFile(null);
+    setImagePreview(product.image_url || "");
+
+    setGalleryFiles([]);
+    setGalleryPreviews([]);
+
     setMessage({
       type: "",
       text: "",
     });
 
     setShowForm(true);
-  }
+  } catch (error) {
+    console.error("Lỗi tải gallery:", error);
 
+    setMessage({
+      type: "error",
+      text: `Không thể tải ảnh sản phẩm: ${error.message}`,
+    });
+  }
+}
+function removeExistingImage(id) {
+  setExistingGallery((prev) =>
+    prev.filter((image) => image.id !== id)
+  );
+
+  setDeletedGalleryIds((prev) => [...prev, id]);
+}
   function closeForm() {
     if (saving) return;
-
+setDeletedGalleryIds([]);
     setShowForm(false);
     setEditingId(null);
     setFormData(emptyForm);
     setImageFile(null);
 setImagePreview("");
+setGalleryFiles([]);
+setGalleryPreviews([]);
   }
-function handleImageChange(event) {
+  function handleImageChange(event) {
   const file = event.target.files?.[0];
 
   if (!file) {
@@ -192,8 +241,62 @@ function handleImageChange(event) {
     return;
   }
 
+  if (file.size > 5 * 1024 * 1024) {
+    setMessage({
+      type: "error",
+      text: "Ảnh đại diện không được vượt quá 5MB.",
+    });
+    return;
+  }
+
   setImageFile(file);
   setImagePreview(URL.createObjectURL(file));
+
+  setMessage({
+    type: "",
+    text: "",
+  });
+}
+function handleGalleryChange(event) {
+  const files = Array.from(event.target.files || []);
+
+  if (files.length === 0) {
+    setGalleryFiles([]);
+    setGalleryPreviews([]);
+    return;
+  }
+
+  const invalidFile = files.find(
+    (file) => !file.type.startsWith("image/"),
+  );
+
+  if (invalidFile) {
+    setMessage({
+      type: "error",
+      text: "Danh sách ảnh chi tiết có file không phải hình ảnh.",
+    });
+    return;
+  }
+
+  const oversizedFile = files.find(
+    (file) => file.size > 5 * 1024 * 1024,
+  );
+
+  if (oversizedFile) {
+    setMessage({
+      type: "error",
+      text: `Ảnh "${oversizedFile.name}" vượt quá 5MB.`,
+    });
+    return;
+  }
+
+  setGalleryFiles(files);
+
+  const previews = files.map((file) =>
+    URL.createObjectURL(file),
+  );
+
+  setGalleryPreviews(previews);
 }
 async function uploadProductImage(file) {
   const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
@@ -219,23 +322,7 @@ async function uploadProductImage(file) {
 
   return data.publicUrl;
 }
-async function uploadProductImage(file) {
-  const extension = file.name.split(".").pop();
 
-  const fileName = `${crypto.randomUUID()}.${extension}`;
-
-  const { error } = await supabase.storage
-    .from("product-images")
-    .upload(`products/${fileName}`, file);
-
-  if (error) throw error;
-
-  const { data } = supabase.storage
-    .from("product-images")
-    .getPublicUrl(`products/${fileName}`);
-
-  return data.publicUrl;
-}
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -297,6 +384,7 @@ if (imageFile) {
     const payload = {
       name: formData.name.trim(),
       slug,
+      category_id: formData.category_id || null,
       image_url,
       unit: formData.unit.trim() || null,
       price: parsedPrice,
@@ -318,7 +406,9 @@ if (imageFile) {
     } else {
       result = await supabase
         .from("products")
-        .insert(payload);
+          .insert(payload)
+  .select()
+  .single();
     }
 
     if (result.error) {
@@ -332,18 +422,61 @@ if (imageFile) {
       setSaving(false);
       return;
     }
+const productId = editingId || result.data.id;
+if (deletedGalleryIds.length > 0) {
+  try {
+    for (const imageId of deletedGalleryIds) {
+      await deleteGalleryImageById(imageId);
+    }
+  } catch (deleteError) {
+    console.error("Lỗi xóa ảnh gallery:", deleteError);
 
     setMessage({
-      type: "success",
-      text: editingId
-        ? "Đã cập nhật sản phẩm."
-        : "Đã thêm sản phẩm.",
+      type: "error",
+      text: `Không thể xóa ảnh chi tiết: ${deleteError.message}`,
     });
+
+    setSaving(false);
+    return;
+  }
+}
+if (galleryFiles.length > 0) {
+  try {
+    if (editingId) {
+      await deleteGalleryImages(productId);
+    }
+
+    const imageUrls = [];
+
+    for (const file of galleryFiles) {
+      const url = await uploadGalleryImage(file);
+      imageUrls.push(url);
+    }
+
+    await saveGalleryImages(productId, imageUrls);
+  } catch (galleryError) {
+    console.error(galleryError);
+
+    setMessage({
+      type: "error",
+      text: `Lưu ảnh chi tiết thất bại: ${galleryError.message}`,
+    });
+
+    setSaving(false);
+    return;
+  }
+}
 
     setSaving(false);
     setShowForm(false);
     setEditingId(null);
     setFormData(emptyForm);
+
+    // Xóa dữ liệu ảnh tạm sau khi lưu thành công
+setDeletedGalleryIds([]);
+setExistingGallery([]);
+setGalleryFiles([]);
+setGalleryPreviews([]);
 
     await fetchProducts();
   }
@@ -711,34 +844,131 @@ if (imageFile) {
     )}
   </div>
 </div>
-              <label className="block text-sm font-bold text-slate-700">
-                Tên sản phẩm *
+{/* Ảnh chi tiết sản phẩm */}
+<div>
+  <label className="block text-sm font-bold text-slate-700">
+    Ảnh chi tiết sản phẩm
+  </label>
 
-                <input
-                  required
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Xi măng Hà Tiên PCB40"
-                  className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-primary-500"
-                />
-              </label>
+  <div className="mt-2 rounded-2xl border border-dashed border-slate-300 p-4">
+    <input
+      type="file"
+      multiple
+      accept="image/png,image/jpeg,image/webp"
+      onChange={handleGalleryChange}
+      className="block w-full text-sm text-slate-600
+                 file:mr-4 file:rounded-lg file:border-0
+                 file:bg-primary-50 file:px-4 file:py-2
+                 file:font-bold file:text-primary-500"
+    />
 
-              <label className="block text-sm font-bold text-slate-700">
-                Slug
+    <p className="mt-2 text-xs text-slate-500">
+      Có thể chọn nhiều ảnh cùng lúc. Mỗi ảnh tối đa 5MB.
+    </p>
 
-                <input
-                  name="slug"
-                  value={formData.slug}
-                  onChange={handleChange}
-                  placeholder="xi-mang-ha-tien-pcb40"
-                  className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-primary-500"
-                />
-              </label>
+    {galleryPreviews.length > 0 && (
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {galleryPreviews.map((preview, index) => (
+          <div
+            key={`${preview}-${index}`}
+            className="overflow-hidden rounded-xl border border-slate-200"
+          >
+            <img
+              src={preview}
+              alt={`Ảnh chi tiết ${index + 1}`}
+              className="h-28 w-full object-cover"
+            />
 
-              <div className="grid gap-5 sm:grid-cols-2">
-                <label className="block text-sm font-bold text-slate-700">
-                  Đơn vị
+            <p className="truncate px-2 py-2 text-xs text-slate-500">
+              {galleryFiles[index]?.name}
+            </p>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+{/* Ảnh cũ trong database */}
+{existingGallery.length > 0 && (
+  <div className="mt-4">
+    <p className="mb-2 text-sm font-medium text-slate-700">
+      Ảnh chi tiết hiện có
+    </p>
+
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {existingGallery.map((image) => (
+        <div
+          key={image.id}
+          className="relative overflow-hidden rounded-lg border"
+        >
+          <img
+            src={image.image_url}
+            alt=""
+            className="h-28 w-full object-cover"
+          />
+
+          <button
+            type="button"
+            onClick={() => removeExistingImage(image.id)}
+            className="absolute right-2 top-2 rounded-full bg-red-600 px-2 py-1 text-xs text-white"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+<label className="block text-sm font-bold text-slate-700">
+  Tên sản phẩm *
+
+  <input
+    required
+    name="name"
+    value={formData.name}
+    onChange={handleChange}
+    placeholder="Xi măng Hà Tiên PCB40"
+    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-primary-500"
+  />
+</label>
+
+<label className="block text-sm font-bold text-slate-700">
+  Slug
+
+  <input
+    name="slug"
+    value={formData.slug}
+    onChange={handleChange}
+    placeholder="xi-mang-ha-tien-pcb40"
+    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-primary-500"
+  />
+</label>
+
+<label className="block text-sm font-bold text-slate-700">
+  Danh mục
+
+  <select
+    name="category_id"
+    value={formData.category_id}
+    onChange={handleChange}
+    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-normal outline-none focus:border-primary-500"
+  >
+    <option value="">Chọn danh mục</option>
+
+    {categories.map((category) => (
+      <option
+        key={category.id}
+        value={category.id}
+      >
+        {category.name}
+      </option>
+    ))}
+  </select>
+</label>
+
+<div className="grid gap-5 sm:grid-cols-2">
+  <label className="block text-sm font-bold text-slate-700">
+    Đơn vị
 
                   <input
                     name="unit"
